@@ -1,13 +1,18 @@
 package com.example.demo;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 public class Todo {
     private int id;
+
+    @NotBlank(message = "タスク名は必須です")
+    @Size(max = 255, message = "タスク名は255文字以内です")
     private String task;
     private boolean done;
 
     public Todo(int id, String task, boolean done) {
         this.id = id;
-        this.task = task;
+        this.task = task; 
         this.done = done;
     }
 

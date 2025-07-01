@@ -1,17 +1,17 @@
 import requests
 
-def get_todos():
+def get_todos(filter_done=None):
     response = requests.get("http://localhost:8080/todos")
     if response.status_code == 200:
         todos = response.json()
         for todo in todos:
-            print(f"ID: {todo['id']} / タスク: {todo['task']} / 完了: {todo['done']}")
+            if filter_done is None or todo["done"] == filter_done:
+                print(f"ID: {todo['id']} / タスク: {todo['task']} / 完了: {todo['done']}")
     else:
         print("タスクの取得に失敗しました")
 
-def add_todo(id, task, done):
+def add_todo(task, done):
     data = {
-        "id": id,
         "task": task,
         "done": done
     }
@@ -48,7 +48,7 @@ def update_todo():
 
     updated_data = {
         "id": todo_id,
-        "title": title,
+        "task": task,
         "done": done
     }
 
@@ -58,11 +58,28 @@ def update_todo():
     else:
         print(f"更新に失敗しました（ステータスコード: {response.status_code}）")
 
+def filter_todos():
+    status = input("表示するタスクの種類を選んでください (done/undone): ").lower()
+    response = requests.get("http://localhost:8080/todos")
+    if response.status_code == 200:
+        todos = response.json()
+        if status == "done":
+            filtered = [todo for todo in todos if todo["done"]]
+        elif status == "undone":
+            filtered = [todo for todo in todos if not todo["done"]]
+        else:
+            print("無効な入力です。")
+            return
+        for todo in filtered:
+            print(f"ID: {todo['id']} / タスク: {todo['task']} / 完了: {todo['done']}")
+    else:
+        print("タスクの取得に失敗しました")
+
 print("現在のタスク一覧:")
 get_todos()
 
 print("\n新しいタスクを追加します:")
-add_todo(3, "Pythonで追加", False)
+add_todo("Pythonで追加", False)
 
 print("\n追加後のタスク一覧:")
 get_todos()
@@ -75,17 +92,18 @@ while True:
     print("4. タスクの詳細表示")
     print("5. タスクの更新")
     print("6. 終了")
+    print("7. 完了したタスクを表示")
+    print("8. 未完了のタスクを表示")    
 
     choice = input("番号を選んでください: ")
 
     if choice == "1":
         get_todos()
     elif choice == "2":
-        id = int(input("IDを入力してください: "))
         task = input("タスク内容を入力してください: ")
         done_str = input("完了していますか？ (yes/no): ")
         done = done_str.lower() == "yes"
-        add_todo(id, task, done)  # ← ちゃんと3つの引数を渡している！
+        add_todo(task, done) 
     elif choice == "3":
         delete_todo()
     elif choice == "4":
@@ -95,5 +113,9 @@ while True:
     elif choice == "6":
         print("終了します。")
         break
+    elif choice == "7":
+        get_todos(filter_done=True)
+    elif choice == "8":
+        get_todos(filter_done=False)
     else:
         print("無効な入力です。")
