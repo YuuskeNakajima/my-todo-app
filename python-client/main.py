@@ -74,6 +74,15 @@ def filter_todos():
             print(f"ID: {todo['id']} / タスク: {todo['task']} / 完了: {todo['done']}")
     else:
         print("タスクの取得に失敗しました")
+    
+    def toggle_todo():
+        todo_id = int(input("完了状態を切り替えたいタスクのIDを入力してください: "))
+        response = requests.patch(f"http://localhost:8080/todos/{todo_id}/toggle")
+        if response.status_code == 200:
+            print("完了状態を切り替えました。")
+        else:
+            print(f"切り替えに失敗しました（ステータスコード: {response.status_code}）")
+
 
 print("現在のタスク一覧:")
 get_todos()
@@ -93,7 +102,8 @@ while True:
     print("5. タスクの更新")
     print("6. 終了")
     print("7. 完了したタスクを表示")
-    print("8. 未完了のタスクを表示")    
+    print("8. 未完了のタスクを表示")
+    print("9. 完了状態を切り替え")    
 
     choice = input("番号を選んでください: ")
 
@@ -117,5 +127,7 @@ while True:
         get_todos(filter_done=True)
     elif choice == "8":
         get_todos(filter_done=False)
+    elif choice == "9":
+        toggle_todo()
     else:
         print("無効な入力です。")

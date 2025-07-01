@@ -66,4 +66,16 @@ public class TodoController {
         throw new NoSuchElementException("指定されたIDのタスクが見つかりません: " + todoId);
     }
 
+    @PatchMapping("/{todoId}/toggle")
+    public Todo toggleTodoDone(@PathVariable int todoId) {
+        for (Todo todo : todos) {
+         if (todo.getId() == todoId) {
+             todo.setDone(!todo.isDone()); // 状態を反転
+                return todo;
+            }
+        }
+        throw new NoSuchElementException("指定されたIDのタスクが見つかりません: " + todoId);
+    }
+
+
 }
