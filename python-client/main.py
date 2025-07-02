@@ -1,133 +1,101 @@
 import requests
+import tkinter as tk
+from tkinter import messagebox
 
-def get_todos(filter_done=None):
-    response = requests.get("http://localhost:8080/todos")
-    if response.status_code == 200:
-        todos = response.json()
-        for todo in todos:
-            if filter_done is None or todo["done"] == filter_done:
-                print(f"ID: {todo['id']} / タスク: {todo['task']} / 完了: {todo['done']}")
+BASE_URL = "http://localhost:8080/todos"
+
+root = tk.Tk()
+root.title("ToDoアプリ")
+
+task_entry = tk.Entry(root, width=40)
+task_entry.pack(pady=5)
+
+filter_var = tk.StringVar(value="all")  # フィルター状態
+
+filter_frame = tk.Frame(root)
+filter_frame.pack(pady=5)
+
+tk.Radiobutton(filter_frame, text="全て", variable=filter_var, value="all", command=lambda: fetch_tasks()).pack(side="left")
+tk.Radiobutton(filter_frame, text="完了済み", variable=filter_var, value="done", command=lambda: fetch_tasks()).pack(side="left")
+tk.Radiobutton(filter_frame, text="未完了", variable=filter_var, value="undone", command=lambda: fetch_tasks()).pack(side="left")
+
+task_frame = tk.Frame(root)
+task_frame.pack(pady=10)
+
+def api_request(method, path="", data=None):
+    try:
+        response = requests.request(method, f"{BASE_URL}{path}", json=data)
+        response.raise_for_status()
+        if response.status_code != 204:
+            return response.json()
+    except requests.RequestException as e:
+        messagebox.showerror("通信エラー", str(e))
+    return None
+
+def fetch_tasks():
+    tasks = api_request("get")
+    if tasks is not None:
+        filter_val = filter_var.get()
+        if filter_val == "done":
+            tasks = [t for t in tasks if t["done"]]
+        elif filter_val == "undone":
+            tasks = [t for t in tasks if not t["done"]]
+        update_task_list(tasks)
+
+def add_task():
+    task = task_entry.get()
+    if not task.strip():
+        messagebox.showwarning("警告", "タスクを入力してください")
+        return
+    if api_request("post", data={"task": task, "done": False}):
+        task_entry.delete(0, tk.END)
+        fetch_tasks()
+
+def delete_task(task_id):
+    if api_request("delete", f"/{task_id}"):
+        fetch_tasks()
     else:
-        print("タスクの取得に失敗しました")
+        messagebox.showerror("エラー", "削除に失敗しました")
 
-def add_todo(task, done):
-    data = {
-        "task": task,
-        "done": done
-    }
+def toggle_done(task_id, task_text, var):
+    new_done = var.get()
+    data = {"id": task_id, "task": task_text, "done": new_done}
+    if not api_request("put", f"/{task_id}", data):
+        messagebox.showerror("エラー", "状態の更新に失敗しました")
+        fetch_tasks()
 
-    response = requests.post("http://localhost:8080/todos", json=data)
-    if response.status_code == 200:
-        print("タスクを追加しました")
-    else:
-        print("タスクの追加に失敗しました")
+def update_task_list(tasks):
+    for widget in task_frame.winfo_children():
+        widget.destroy()
 
-def delete_todo():
-    todo_id = int(input("削除するタスクのIDを入力してください: "))
-    response = requests.delete(f"http://localhost:8080/todos/{todo_id}")
-    if response.status_code == 200 or response.status_code == 204:
-        print("タスクを削除しました")
-    else:
-        print(f"削除に失敗しました。ステータスコード: {response.status_code}")
+    for task in tasks:
+        var = tk.BooleanVar(value=task["done"])
 
-def get_todo_by_id():
-    todo_id = int(input("詳細を確認したいタスクのIDを入力してください: "))
-    response = requests.get(f"http://localhost:8080/todos/{todo_id}")
-    if response.status_code == 200:
-        todo = response.json()
-        print(f"ID: {todo['id']} / タスク: {todo['task']} / 完了: {todo['done']}")
-    else:
-        print(f"タスクが見つかりません（ステータスコード: {response.status_code}）")
+        row_frame = tk.Frame(task_frame)
+        row_frame.pack(fill="x", pady=2)
 
+        chk = tk.Checkbutton(
+            row_frame,
+            text=task["task"],
+            variable=var,
+            command=lambda tid=task["id"], t=task["task"], v=var: toggle_done(tid, t, v)
+        )
+        chk.pack(side="left", anchor="w")
 
-def update_todo():
-    todo_id = int(input("更新したいタスクのIDを入力してください: "))
-    task = input("新しいタスクを入力してください: ")
-    done_str = input("完了していますか？ (yes/no): ")
-    done = done_str.lower() == "yes"
+        btn = tk.Button(
+            row_frame,
+            text="削除",
+            command=lambda tid=task["id"]: delete_task(tid)
+        )
+        btn.pack(side="left", padx=10)
 
-    updated_data = {
-        "id": todo_id,
-        "task": task,
-        "done": done
-    }
+        tk.Frame(task_frame, height=2).pack()
 
-    response = requests.put(f"http://localhost:8080/todos/{todo_id}", json=updated_data)
-    if response.status_code == 200:
-        print("タスクを更新しました。")
-    else:
-        print(f"更新に失敗しました（ステータスコード: {response.status_code}）")
+add_button = tk.Button(root, text="追加", command=add_task)
+add_button.pack(pady=5)
 
-def filter_todos():
-    status = input("表示するタスクの種類を選んでください (done/undone): ").lower()
-    response = requests.get("http://localhost:8080/todos")
-    if response.status_code == 200:
-        todos = response.json()
-        if status == "done":
-            filtered = [todo for todo in todos if todo["done"]]
-        elif status == "undone":
-            filtered = [todo for todo in todos if not todo["done"]]
-        else:
-            print("無効な入力です。")
-            return
-        for todo in filtered:
-            print(f"ID: {todo['id']} / タスク: {todo['task']} / 完了: {todo['done']}")
-    else:
-        print("タスクの取得に失敗しました")
-    
-    def toggle_todo():
-        todo_id = int(input("完了状態を切り替えたいタスクのIDを入力してください: "))
-        response = requests.patch(f"http://localhost:8080/todos/{todo_id}/toggle")
-        if response.status_code == 200:
-            print("完了状態を切り替えました。")
-        else:
-            print(f"切り替えに失敗しました（ステータスコード: {response.status_code}）")
+fetch_tasks()
+root.mainloop()
 
 
-print("現在のタスク一覧:")
-get_todos()
 
-print("\n新しいタスクを追加します:")
-add_todo("Pythonで追加", False)
-
-print("\n追加後のタスク一覧:")
-get_todos()
-
-while True:
-    print("\nメニュー:")
-    print("1. タスク一覧表示")
-    print("2. タスク追加")
-    print("3. タスク削除")
-    print("4. タスクの詳細表示")
-    print("5. タスクの更新")
-    print("6. 終了")
-    print("7. 完了したタスクを表示")
-    print("8. 未完了のタスクを表示")
-    print("9. 完了状態を切り替え")    
-
-    choice = input("番号を選んでください: ")
-
-    if choice == "1":
-        get_todos()
-    elif choice == "2":
-        task = input("タスク内容を入力してください: ")
-        done_str = input("完了していますか？ (yes/no): ")
-        done = done_str.lower() == "yes"
-        add_todo(task, done) 
-    elif choice == "3":
-        delete_todo()
-    elif choice == "4":
-        get_todo_by_id()
-    elif choice == "5":
-        update_todo()
-    elif choice == "6":
-        print("終了します。")
-        break
-    elif choice == "7":
-        get_todos(filter_done=True)
-    elif choice == "8":
-        get_todos(filter_done=False)
-    elif choice == "9":
-        toggle_todo()
-    else:
-        print("無効な入力です。")

@@ -46,9 +46,10 @@ public class TodoController {
     }
 
     @PutMapping("/{todoId}")
-    public Todo updateTodo(@PathVariable int todoId, @RequestBody Todo updatedTodo) {
+    public Todo updateTodo(@PathVariable int todoId, @Valid @RequestBody Todo updatedTodo) {
         for (int i = 0; i < todos.size(); i++) {
             if (todos.get(i).getId() == todoId) {
+                updatedTodo.setId(todoId);
                 todos.set(i, updatedTodo);
                 return updatedTodo;
             }
@@ -76,6 +77,5 @@ public class TodoController {
         }
         throw new NoSuchElementException("指定されたIDのタスクが見つかりません: " + todoId);
     }
-
 
 }
