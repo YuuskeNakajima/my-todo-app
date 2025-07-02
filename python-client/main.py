@@ -1,17 +1,14 @@
 import requests
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import messagebox, simpledialog
 
 BASE_URL = "http://localhost:8080/todos"
 
 root = tk.Tk()
 root.title("ToDoアプリ")
+root.minsize(width=400, height=300)
 
-task_entry = tk.Entry(root, width=40)
-task_entry.pack(pady=5)
-
-filter_var = tk.StringVar(value="all")  # フィルター状態
-
+filter_var = tk.StringVar(value="all")
 filter_frame = tk.Frame(root)
 filter_frame.pack(pady=5)
 
@@ -21,6 +18,15 @@ tk.Radiobutton(filter_frame, text="未完了", variable=filter_var, value="undon
 
 task_frame = tk.Frame(root)
 task_frame.pack(pady=10)
+
+def add_task(event=None):
+    task = task_entry.get()
+    if not task.strip():
+        messagebox.showwarning("警告", "タスクを入力してください")
+        return
+    if api_request("post", data={"task": task, "done": False}):
+        task_entry.delete(0, tk.END)
+        fetch_tasks()
 
 def api_request(method, path="", data=None):
     try:
@@ -40,28 +46,30 @@ def fetch_tasks():
             tasks = [t for t in tasks if t["done"]]
         elif filter_val == "undone":
             tasks = [t for t in tasks if not t["done"]]
+        tasks.sort(key=lambda x: x["done"])  # 未完了→完了の順に並べる
         update_task_list(tasks)
 
-def add_task():
-    task = task_entry.get()
-    if not task.strip():
-        messagebox.showwarning("警告", "タスクを入力してください")
-        return
-    if api_request("post", data={"task": task, "done": False}):
-        task_entry.delete(0, tk.END)
-        fetch_tasks()
-
 def delete_task(task_id):
-    if api_request("delete", f"/{task_id}"):
-        fetch_tasks()
-    else:
-        messagebox.showerror("エラー", "削除に失敗しました")
+    if messagebox.askyesno("確認", "このタスクを削除しますか？"):
+        if api_request("delete", f"/{task_id}"):
+            messagebox.showinfo("削除完了", "タスクを削除しました。")
+            fetch_tasks()
+        else:
+            messagebox.showerror("エラー", "削除に失敗しました")
 
 def toggle_done(task_id, task_text, var):
     new_done = var.get()
     data = {"id": task_id, "task": task_text, "done": new_done}
     if not api_request("put", f"/{task_id}", data):
         messagebox.showerror("エラー", "状態の更新に失敗しました")
+    fetch_tasks() 
+
+def edit_task(task_id, old_task, done_status):
+    new_task = simpledialog.askstring("編集", "新しいタスク名を入力：", initialvalue=old_task, parent=root)
+    if new_task and new_task.strip() and new_task != old_task:
+        data = {"id": task_id, "task": new_task, "done": done_status}
+        if not api_request("put", f"/{task_id}", data):
+            messagebox.showerror("エラー", "編集に失敗しました")
         fetch_tasks()
 
 def update_task_list(tasks):
@@ -70,32 +78,58 @@ def update_task_list(tasks):
 
     for task in tasks:
         var = tk.BooleanVar(value=task["done"])
-
         row_frame = tk.Frame(task_frame)
         row_frame.pack(fill="x", pady=2)
+
+        fg_color = "gray" if task["done"] else "black"
+        font_style = ("Arial", 10, "overstrike") if task["done"] else ("Arial", 10)
 
         chk = tk.Checkbutton(
             row_frame,
             text=task["task"],
             variable=var,
-            command=lambda tid=task["id"], t=task["task"], v=var: toggle_done(tid, t, v)
+            command=lambda tid=task["id"], t=task["task"], v=var: toggle_done(tid, t, v),
+            fg=fg_color,
+            font=font_style,
+            anchor="w",
+            width=25
         )
-        chk.pack(side="left", anchor="w")
+        chk.grid(row=0, column=0, sticky="w")
 
-        btn = tk.Button(
+        status_text = "完了" if task["done"] else "未完了"
+        status_label = tk.Label(row_frame, text=status_text, width=6, anchor="center", fg=fg_color)
+        status_label.grid(row=0, column=1, padx=5)
+
+        edit_btn = tk.Button(
+            row_frame,
+            text="編集",
+            width=6,
+            command=lambda tid=task["id"], t=task["task"], d=task["done"]: edit_task(tid, t, d)
+        )
+        edit_btn.grid(row=0, column=2, padx=3)
+
+        del_btn = tk.Button(
             row_frame,
             text="削除",
+            width=6,
             command=lambda tid=task["id"]: delete_task(tid)
         )
-        btn.pack(side="left", padx=10)
+        del_btn.grid(row=0, column=3, padx=3)
 
-        tk.Frame(task_frame, height=2).pack()
+input_frame = tk.Frame(root)
+input_frame.pack(pady=5)
 
-add_button = tk.Button(root, text="追加", command=add_task)
-add_button.pack(pady=5)
+task_entry = tk.Entry(input_frame, width=30)
+task_entry.pack(side="left", padx=5)
+
+add_button = tk.Button(input_frame, text="追加", command=add_task)
+add_button.pack(side="left")
+
+task_entry.bind("<Return>", add_task)
 
 fetch_tasks()
 root.mainloop()
+
 
 
 
