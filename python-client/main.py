@@ -4,6 +4,8 @@ import requests
 import json
 import os
 from datetime import datetime
+import subprocess
+import time
 
 BASE_URL = "http://localhost:8080/todos"
 LOCAL_FILE = "todos.json"
@@ -38,6 +40,18 @@ tk.Label(input_frame, text="タグ（, 区切り）").grid(row=0, column=4)
 tk.Entry(input_frame, textvariable=tags_input, width=20).grid(row=0, column=5)
 
 tk.Button(input_frame, text="追加", command=lambda: add_task()).grid(row=0, column=6, padx=5)
+
+def start_java_server():
+    import sys
+    base_dir = os.path.dirname(sys.executable) if getattr(sys, 'frozen', False) else os.path.dirname(__file__)
+    jar_path = os.path.join(base_dir, "server.jar")
+    if os.path.exists(jar_path):
+        subprocess.Popen(["java", "-jar", jar_path])
+        time.sleep(2)  # 起動待ち（必要に応じて調整）
+    else:
+        print(f"server.jar が見つかりません: {jar_path}")
+
+start_java_server()
 
 def force_half_width(event):
     val = date_input.get()
